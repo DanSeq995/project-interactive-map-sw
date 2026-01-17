@@ -1,0 +1,153 @@
+.map-canvas-container {
+  width: 100%;
+  height: calc(100vh - 70px);
+  position: relative;
+  display: flex;
+}
+
+.map-canvas {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Stili per le pedine */
+.token {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.75rem;
+  color: white;
+  user-select: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border: 3px solid white;
+  transition: transform 0.1s ease;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+}
+
+.token:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.token:active {
+  cursor: grabbing;
+}
+
+.token.selected {
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.token-label {
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* Menu di eliminazione al long-press */
+.token-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid #FF6B6B;
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 1000;
+  pointer-events: all;
+}
+
+.delete-btn {
+  padding: 6px 12px;
+  background: #FF6B6B;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.delete-btn:hover {
+  background: #FF5252;
+}
+
+.delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* Bottone flottante per aggiungere pedine */
+.add-token-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #4ECDC4 0%, #45B7D1 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(78, 205, 196, 0.4);
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+
+.add-token-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(78, 205, 196, 0.5);
+}
+
+.add-token-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .token {
+    width: 40px;
+    height: 40px;
+    font-size: 0.65rem;
+    border-width: 2px;
+  }
+
+  .add-token-btn {
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .token {
+    width: 36px;
+    height: 36px;
+    font-size: 0.6rem;
+  }
+
+  .add-token-btn {
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    bottom: 12px;
+    right: 12px;
+  }
+}
