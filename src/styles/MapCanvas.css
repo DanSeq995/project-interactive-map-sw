@@ -3,6 +3,150 @@
   height: calc(100vh - 70px);
   position: relative;
   display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #0a0a0a;
+  box-sizing: border-box;
+}
+
+/* Sidebar per le liste di pedine */
+.sidebar {
+  width: 200px;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.sidebar h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #ffffff;
+  border-bottom: 2px solid #444;
+  padding-bottom: 0.5rem;
+}
+
+/* Bottone Aggiungi nella sidebar */
+.add-sidebar-btn {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.add-sidebar-btn.party-btn {
+  background: linear-gradient(135deg, #4ECDC4 0%, #45B7D1 100%);
+  border: 2px solid #4ECDC4;
+}
+
+.add-sidebar-btn.party-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(78, 205, 196, 0.4);
+}
+
+.add-sidebar-btn.enemy-btn {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%);
+  border: 2px solid #FF6B6B;
+}
+
+.add-sidebar-btn.enemy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+}
+
+.add-sidebar-btn:active {
+  transform: translateY(0);
+}
+
+.tokens-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.empty-list {
+  color: #666;
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 1rem 0;
+}
+
+.token-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(45, 45, 45, 0.5);
+  border: 2px solid #333;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.token-list-item:hover {
+  background: rgba(78, 205, 196, 0.1);
+  border-color: #4ECDC4;
+  transform: translateX(2px);
+}
+
+.token-list-item.selected {
+  background: rgba(78, 205, 196, 0.2);
+  border-color: #4ECDC4;
+  box-shadow: 0 0 12px rgba(78, 205, 196, 0.3);
+}
+
+.token-color-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.token-list-name {
+  flex: 1;
+  color: #fff;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-left {
+  border-left: 3px solid #4ECDC4;
+}
+
+.sidebar-right {
+  border-right: 3px solid #FF6B6B;
+}
+
+/* Scrollbar personalizzata */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }
 
 .map-canvas {
@@ -17,6 +161,8 @@
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  border-radius: 8px;
+  border: 2px solid #444;
 }
 
 /* Stili per le pedine */
@@ -71,6 +217,30 @@
   padding: 8px;
   z-index: 1000;
   pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-name-btn {
+  padding: 6px 12px;
+  background: #F7DC6F;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.edit-name-btn:hover {
+  background: #F0D547;
+}
+
+.edit-name-btn:active {
+  transform: scale(0.95);
 }
 
 .delete-btn {
@@ -91,6 +261,55 @@
 }
 
 .delete-btn:active {
+  transform: scale(0.95);
+}
+
+.color-change-btn {
+  padding: 6px 12px;
+  background: #45B7D1;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.color-change-btn:hover {
+  background: #3A9BB8;
+}
+
+.color-change-btn:active {
+  transform: scale(0.95);
+}
+
+/* Palette colori nel menu della pedina */
+.token-color-palette {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #444;
+}
+
+.token-color-btn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.token-color-btn:hover {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+.token-color-btn:active {
   transform: scale(0.95);
 }
 
@@ -119,6 +338,287 @@
 
 .add-token-btn:active {
   transform: translateY(0);
+}
+
+/* Overlay e menu per scegliere il tipo di pedina */
+.type-menu-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.type-menu {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+  border: 2px solid #4ECDC4;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.type-menu h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+}
+
+.type-menu-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.type-btn {
+  padding: 12px 24px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: white;
+  min-width: 120px;
+}
+
+.party-btn {
+  background: linear-gradient(135deg, #4ECDC4 0%, #45B7D1 100%);
+  border-color: #4ECDC4;
+}
+
+.party-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(78, 205, 196, 0.4);
+}
+
+.enemy-btn {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF5252 100%);
+  border-color: #FF6B6B;
+}
+
+.enemy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(255, 107, 107, 0.4);
+}
+
+.type-btn:active {
+  transform: translateY(0);
+}
+
+.type-menu-close {
+  padding: 8px 16px;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-menu-close:hover {
+  color: #fff;
+  border-color: #666;
+}
+
+/* Menu per scegliere il colore della pedina */
+.color-menu-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.color-menu {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+  border: 2px solid #45B7D1;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  animation: slideUp 0.3s ease;
+  max-width: 450px;
+}
+
+.color-menu h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+}
+
+.color-palette {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.color-btn {
+  width: 60px;
+  height: 60px;
+  border: 3px solid #444;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.color-btn:hover {
+  transform: scale(1.1);
+  border-color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.color-btn:active {
+  transform: scale(0.95);
+}
+
+.color-menu-close {
+  padding: 8px 16px;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #444;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.color-menu-close:hover {
+  color: #fff;
+  border-color: #666;
+}
+
+/* Menu per inserire il nome della pedina */
+.name-menu-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.name-menu {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+  border: 2px solid #FFA07A;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  animation: slideUp 0.3s ease;
+  max-width: 400px;
+}
+
+.name-menu h3 {
+  font-size: 1.3rem;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+}
+
+.name-preview {
+  font-size: 1rem;
+  color: #aaa;
+  margin-bottom: 1rem;
+}
+
+.name-preview strong {
+  font-size: 1.4rem;
+  color: #FFA07A;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+.name-input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 1.5rem;
+  background: #1a1a1a;
+  border: 2px solid #444;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: #FFA07A;
+}
+
+.name-menu-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.confirm-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4ECDC4 0%, #45B7D1 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(78, 205, 196, 0.4);
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: transparent;
+  color: #aaa;
+  border: 2px solid #444;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover {
+  color: #fff;
+  border-color: #666;
 }
 
 @media (max-width: 768px) {
