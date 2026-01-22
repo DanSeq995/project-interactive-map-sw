@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
 import '../styles/MapCanvas.css';
 
 /**
@@ -10,6 +10,8 @@ import '../styles/MapCanvas.css';
  * @property {string} label - Etichetta visualizzata sulla pedina
  * @property {string} color - Colore della pedina in formato hex
  * @property {'party'|'enemy'} type - Tipo di pedina (party o enemy)
+ * @property {number} wounds - Numero di ferite subite dalla pedina (default: 0)
+ * @property {boolean} shaken - Indica se la pedina è nello stato "scosso" (default: false)
  */
 export interface Token {
   id: string;
@@ -18,6 +20,9 @@ export interface Token {
   label: string;
   color: string;
   type: 'party' | 'enemy';
+  wounds: number;
+  shaken: boolean;
+  size: number; // 1, 2, o 4 (piccolo, medio, grande)
 }
 
 /**
@@ -31,6 +36,16 @@ interface MapCanvasProps {
   mapUrl: string;
   mapWidth: number;
   mapHeight: number;
+  currentTurnIndex: number;
+  onTokensCountChange: (count: number) => void;
+  baseTokenSize: number;
+}
+
+/**
+ * Interfaccia per i metodi esposti tramite ref
+ */
+export interface MapCanvasRef {
+  openCharactersList: () => void;
 }
 
 /**
@@ -40,9 +55,11 @@ interface MapCanvasProps {
  * 
  * @component
  * @param {MapCanvasProps} props - Le props del componente
+ * @param {React.Ref} ref - Ref per esporre metodi pubblici al componente padre
  * @returns {React.ReactElement} L'elemento della mappa interattiva
  */
-export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
+export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) => {
+  const { mapUrl, currentTurnIndex, onTokensCountChange, baseTokenSize } = props;
   const canvasRef = useRef<HTMLDivElement>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
@@ -50,15 +67,36 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   const [nextId, setNextId] = useState(1);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [showSizeMenu, setShowSizeMenu] = useState(false);
+  const [showSizeMenuCreation, setShowSizeMenuCreation] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showNameMenu, setShowNameMenu] = useState(false);
   const [showTokenColorMenu, setShowTokenColorMenu] = useState(false);
+  const [showTokenSizeMenu, setShowTokenSizeMenu] = useState(false);
   const [showTokenNameMenu, setShowTokenNameMenu] = useState(false);
   const [selectedType, setSelectedType] = useState<'party' | 'enemy' | null>(null);
+  const [selectedSize, setSelectedSize] = useState<number>(1);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [tokenName, setTokenName] = useState('');
   const [editingTokenName, setEditingTokenName] = useState('');
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
+  const [showCharactersList, setShowCharactersList] = useState(false);
+  const [draggedListIndex, setDraggedListIndex] = useState<number | null>(null);
+
+  /**
+   * Espone la funzione per aprire la lista dei personaggi al componente padre
+   */
+  useImperativeHandle(ref, () => ({
+    openCharactersList: () => setShowCharactersList(true)
+  }));
+
+  /**
+   * Notifica al componente padre quando cambia il numero di tokens
+   */
+  useEffect(() => {
+    onTokensCountChange(tokens.length);
+  }, [tokens.length, onTokensCountChange]);
 
   /**
    * Palette di colori disponibili per le pedine
@@ -105,6 +143,18 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   };
 
   /**
+   * Gestisce la selezione della dimensione della pedina
+   * Dopo aver scelto la dimensione, apre il menu del colore
+   * 
+   * @param {number} size - La dimensione selezionata (1, 2, o 4)
+   */
+  const handleSelectSize = (size: number) => {
+    setSelectedSize(size);
+    setShowSizeMenu(false);
+    setShowColorMenu(true);
+  };
+
+  /**
    * Crea una nuova pedina con il tipo e colore specificati
    * Apre il menu per inserire il nome della pedina
    * @param {string} color - Il colore della pedina
@@ -123,6 +173,17 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
    */
   const finishCreateToken = () => {
     if (!selectedType || !selectedColor || !tokenName.trim()) return;
+    
+    // Chiudi il menu nome e apri il menu dimensione
+    setShowNameMenu(false);
+    setShowSizeMenuCreation(true);
+  };
+
+  /**
+   * Completa la creazione del token con la dimensione selezionata
+   */
+  const completeTokenCreation = (size: number) => {
+    if (!selectedType || !selectedColor || !tokenName.trim()) return;
 
     const newToken: Token = {
       id: `token-${nextId}`,
@@ -131,11 +192,14 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
       label: tokenName.trim(),
       color: selectedColor,
       type: selectedType,
+      wounds: 0,
+      shaken: false,
+      size: size,
     };
 
     setTokens([...tokens, newToken]);
     setNextId(nextId + 1);
-    setShowNameMenu(false);
+    setShowSizeMenuCreation(false);
     setSelectedType(null);
     setSelectedColor(null);
     setTokenName('');
@@ -153,11 +217,6 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
     e: React.MouseEvent<HTMLDivElement>,
     tokenId: string
   ) => {
-    // Cancella il timer del long press per evitare di aprire il menu durante il drag
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-    }
-
     e.stopPropagation();
     const token = tokens.find((t) => t.id === tokenId);
     if (!token) return;
@@ -209,29 +268,48 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   };
 
   /**
-   * Gestisce il long-press su una pedina
-   * Mostra il menu di eliminazione dopo 500ms
+   * Gestisce il long-press su un elemento della lista laterale
+   * Mostra il menu di azioni (rinomina, colore, elimina) dopo 500ms di pressione
+   * Ottimizzato per interfaccia tablet con gesture touch
    * 
-   * @param {string} tokenId - L'ID della pedina
+   * @param {string} tokenId - L'ID della pedina da selezionare
    */
   const handleTokenMouseDown_LongPress = (tokenId: string) => {
     longPressTimerRef.current = setTimeout(() => {
       setSelectedToken(tokenId);
+      longPressTriggeredRef.current = true;
     }, 500);
   };
 
   /**
-   * Cancella il timer del long-press quando il mouse viene rilasciato
+   * Cancella il timer del long-press quando il mouse/touch viene rilasciato
+   * Previene l'apertura accidentale del menu se l'utente rilascia prima di 500ms
+   * Importante per interfacce touch su tablet
    */
   const handleTokenMouseUp_CancelLongPress = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
     }
+    // Resetta il flag dopo un breve delay per permettere all'onClick di controllarlo
+    setTimeout(() => {
+      longPressTriggeredRef.current = false;
+    }, 50);
+  };
+
+  /**
+   * Chiude il menu di azioni della pedina selezionata
+   * Chiude anche la palette dei colori se aperta
+   * Utilizzato quando l'utente clicca/tocca al di fuori del menu (UX tablet)
+   */
+  const handleCloseMenu = () => {
+    setSelectedToken(null);
+    setShowTokenColorMenu(false);
+    setShowTokenSizeMenu(false);
   };
 
   /**
    * Elimina una pedina dalla mappa
-   * Resetta lo stato del token selezionato
+   * Resetta lo stato del token selezionato e chiude tutti i menu aperti
    * 
    * @param {string} tokenId - L'ID della pedina da eliminare
    */
@@ -241,11 +319,12 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   };
 
   /**
-   * Cambia il colore di una pedina
-   * Chiude la palette dei colori dopo la selezione
+   * Cambia il colore di una pedina esistente
+   * Chiude automaticamente la palette dei colori dopo la selezione
+   * Mantiene tutte le altre proprietà della pedina immutate
    * 
-   * @param {string} tokenId - L'ID della pedina
-   * @param {string} color - Il nuovo colore in formato hex
+   * @param {string} tokenId - L'ID univoco della pedina da modificare
+   * @param {string} color - Il nuovo colore in formato hex (es. '#FF6B6B')
    */
   const handleChangeTokenColor = (tokenId: string, color: string) => {
     setTokens(
@@ -257,10 +336,24 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   };
 
   /**
-   * Apre il menu per cambiare il nome di una pedina
-   * Carica il nome attuale della pedina nel campo di input
+   * Cambia la dimensione di una pedina esistente
+   */
+  const handleChangeTokenSize = (tokenId: string, newSize: number) => {
+    setTokens(
+      tokens.map((token) =>
+        token.id === tokenId ? { ...token, size: newSize } : token
+      )
+    );
+    setShowTokenSizeMenu(false);
+    handleCloseMenu();
+  };
+
+  /**
+   * Apre il menu modale per cambiare il nome di una pedina esistente
+   * Pre-popola il campo di input con il nome attuale per facilitare la modifica
+   * Chiude il menu di azioni della sidebar prima di aprire il modale
    * 
-   * @param {string} tokenId - L'ID della pedina
+   * @param {string} tokenId - L'ID univoco della pedina da rinominare
    */
   const handleOpenTokenNameMenu = (tokenId: string) => {
     const token = tokens.find((t) => t.id === tokenId);
@@ -271,12 +364,12 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
   };
 
   /**
-   * Cambia il nome di una pedina
-   * Convalida il nome prima di applicare il cambio
-   * Chiude il menu di modifica dopo il cambio
+   * Cambia il nome di una pedina esistente
+   * Valida che il nome non sia vuoto (rimuove spazi iniziali/finali)
+   * Chiude automaticamente il menu di modifica e resetta lo stato dopo il cambio
    * 
-   * @param {string} tokenId - L'ID della pedina
-   * @param {string} newName - Il nuovo nome della pedina
+   * @param {string} tokenId - L'ID univoco della pedina da rinominare
+   * @param {string} newName - Il nuovo nome della pedina (verrà trimmed)
    */
   const handleChangeTokenName = (tokenId: string, newName: string) => {
     if (!newName.trim()) return;
@@ -290,14 +383,92 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
     setEditingTokenName('');
   };
 
+  /**
+   * Aggiunge una ferita alla pedina selezionata
+   * Incrementa il contatore delle ferite di 1
+   * Ottimizzato per interfaccia tablet con feedback visivo immediato
+   * 
+   * @param {string} tokenId - L'ID univoco della pedina da ferire
+   */
+  const handleAddWound = (tokenId: string) => {
+    setTokens(
+      tokens.map((token) =>
+        token.id === tokenId ? { ...token, wounds: token.wounds + 1 } : token
+      )
+    );
+  };
+
+  /**
+   * Rimuove una ferita dalla pedina selezionata
+   * Decrementa il contatore delle ferite di 1 (minimo 0)
+   * Non permette di andare sotto zero per evitare valori negativi
+   * 
+   * @param {string} tokenId - L'ID univoco della pedina da guarire
+   */
+  const handleRemoveWound = (tokenId: string) => {
+    setTokens(
+      tokens.map((token) =>
+        token.id === tokenId ? { ...token, wounds: Math.max(0, token.wounds - 1) } : token
+      )
+    );
+  };
+
+  /**
+   * Gestisce il doppio click sulla pedina per attivare/disattivare lo stato "scosso"
+   * Lo stato scosso viene visualizzato con un'animazione di stelline sopra la pedina
+   * Ottimizzato per interfaccia tablet con feedback visivo immediato
+   * 
+   * @param {string} tokenId - L'ID univoco della pedina da rendere scossa o rimuovere lo stato
+   */
+  const handleTokenDoubleClick = (tokenId: string) => {
+    setTokens(
+      tokens.map((token) =>
+        token.id === tokenId ? { ...token, shaken: !token.shaken } : token
+      )
+    );
+  };
+
+  /**
+   * Gestisce l'inizio del drag di un elemento nella lista dei personaggi
+   * Salva l'indice dell'elemento che viene trascinato
+   * 
+   * @param {number} index - L'indice dell'elemento nella lista
+   */
+  const handleListDragStart = (index: number) => {
+    setDraggedListIndex(index);
+  };
+
+  /**
+   * Gestisce il drop di un elemento nella lista dei personaggi
+   * Riordina l'array dei token spostando l'elemento trascinato nella nuova posizione
+   * 
+   * @param {number} targetIndex - L'indice dove rilasciare l'elemento
+   */
+  const handleListDrop = (targetIndex: number) => {
+    if (draggedListIndex === null || draggedListIndex === targetIndex) {
+      setDraggedListIndex(null);
+      return;
+    }
+
+    const newTokens = [...tokens];
+    const [draggedItem] = newTokens.splice(draggedListIndex, 1);
+    newTokens.splice(targetIndex, 0, draggedItem);
+    
+    setTokens(newTokens);
+    setDraggedListIndex(null);
+  };
+
   return (
     <div className="map-canvas-container">
       {/* Sidebar sinistra - Lista Party */}
-      <div className="sidebar sidebar-left">
+      <div className="sidebar sidebar-left" onClick={handleCloseMenu}>
         <h3>👥 Party</h3>
         <button
           className="add-sidebar-btn party-btn"
-          onClick={() => handleAddToken('party')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddToken('party');
+          }}
         >
           ➕ Aggiungi
         </button>
@@ -307,19 +478,90 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
           ) : (
             tokens
               .filter((t) => t.type === 'party')
-              .map((token) => (
-                <div
-                  key={token.id}
-                  className="token-list-item"
-                  onClick={() => setSelectedToken(token.id)}
-                >
+              .map((token) => {
+                const tokenIndex = tokens.indexOf(token);
+                return (
+                <div key={token.id}>
                   <div
-                    className="token-color-indicator"
-                    style={{ backgroundColor: token.color }}
-                  />
-                  <span className="token-list-name">{token.label}</span>
+                    className={`token-list-item ${selectedToken === token.id ? 'selected' : ''} ${tokenIndex === currentTurnIndex ? 'active-turn' : ''}`}
+                    onMouseDown={() => handleTokenMouseDown_LongPress(token.id)}
+                    onMouseUp={handleTokenMouseUp_CancelLongPress}
+                    onMouseLeave={handleTokenMouseUp_CancelLongPress}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Ignora il click se è stato appena completato un long press
+                      if (longPressTriggeredRef.current) {
+                        return;
+                      }
+                      // Se l'elemento è già selezionato, chiudi il menu
+                      if (selectedToken === token.id) {
+                        handleCloseMenu();
+                      }
+                    }}
+                  >
+                    <div
+                      className="token-color-indicator"
+                      style={{ backgroundColor: token.color }}
+                    />
+                    <span className="token-list-name">{token.label}</span>
+                  </div>
+                  
+                  {/* Menu per la pedina selezionata */}
+                  {selectedToken === token.id && (
+                    <div className="sidebar-token-menu" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="sidebar-menu-btn edit-name-btn"
+                        onClick={() => handleOpenTokenNameMenu(token.id)}
+                      >
+                        ✎ Rinomina
+                      </button>
+                      <button
+                        className="sidebar-menu-btn color-change-btn"
+                        onClick={() => setShowTokenColorMenu(true)}
+                      >
+                        🎨 Colore
+                      </button>
+                      <div className="wounds-control">
+                        <button
+                          className="sidebar-menu-btn wounds-btn"
+                          onClick={() => handleRemoveWound(token.id)}
+                          disabled={token.wounds === 0}
+                        >
+                          ➖
+                        </button>
+                        <span className="wounds-counter">💔 {token.wounds}</span>
+                        <button
+                          className="sidebar-menu-btn wounds-btn"
+                          onClick={() => handleAddWound(token.id)}
+                        >
+                          ➕
+                        </button>
+                      </div>
+                      <button
+                        className="sidebar-menu-btn delete-btn"
+                        onClick={() => handleDeleteToken(token.id)}
+                      >
+                        🗑️ Elimina
+                      </button>
+
+                      {/* Palette colori nel menu sidebar */}
+                      {showTokenColorMenu && (
+                        <div className="sidebar-color-palette">
+                          {colorPalette.map((color, index) => (
+                            <button
+                              key={index}
+                              className="sidebar-color-btn"
+                              style={{ backgroundColor: color }}
+                              onClick={() => handleChangeTokenColor(token.id, color)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))
+              );}
+              )
           )}
         </div>
       </div>
@@ -331,10 +573,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onClick={() => {
-          setShowTokenColorMenu(false);
-          setSelectedToken(null);
-        }}
+        onClick={handleCloseMenu}
         style={{
           backgroundImage: `url(${mapUrl})`,
           backgroundSize: 'contain',
@@ -349,61 +588,40 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
         }}
       >
         {/* Rendering delle pedine sulla mappa */}
-        {tokens.map((token) => (
+        {tokens.map((token, index) => (
           <div
             key={token.id}
-            className={`token ${selectedToken === token.id ? 'selected' : ''}`}
-            onMouseDown={(e) => {
-              handleTokenMouseDown(e, token.id);
-              handleTokenMouseDown_LongPress(token.id);
-            }}
-            onMouseUp={handleTokenMouseUp_CancelLongPress}
-            onMouseLeave={handleTokenMouseUp_CancelLongPress}
-            onClick={(e) => e.stopPropagation()}
+            className={`token ${selectedToken === token.id ? 'selected' : ''} ${token.shaken ? 'shaken' : ''} ${index === currentTurnIndex ? 'active-turn-token' : ''}`}
+            onMouseDown={(e) => handleTokenMouseDown(e, token.id)}
+            onDoubleClick={() => handleTokenDoubleClick(token.id)}
             style={{
               left: `${token.x}%`,
               top: `${token.y}%`,
               backgroundColor: token.color,
               cursor: 'grab',
+              width: `${baseTokenSize * token.size}px`,
+              height: `${baseTokenSize * token.size}px`,
+              fontSize: `${baseTokenSize * token.size * 0.015625}rem`,
             }}
           >
             <span className="token-label">{token.label.substring(0, 2).toUpperCase()}</span>
-
-            {/* Menu di eliminazione al long-press */}
-            {selectedToken === token.id && (
-              <div className="token-menu" onClick={(e) => e.stopPropagation()}>
-                <button
-                  className="edit-name-btn"
-                  onClick={() => handleOpenTokenNameMenu(token.id)}
-                >
-                  ✎️ Rinomina
-                </button>
-                <button
-                  className="color-change-btn"
-                  onClick={() => setShowTokenColorMenu(true)}
-                >
-                  🎨 Colore
-                </button>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDeleteToken(token.id)}
-                >
-                  🗑️ Elimina
-                </button>
-
-                {/* Palette colori nel menu token */}
-                {showTokenColorMenu && (
-                  <div className="token-color-palette">
-                    {colorPalette.map((color, index) => (
-                      <button
-                        key={index}
-                        className="token-color-btn"
-                        style={{ backgroundColor: color }}
-                        onClick={() => handleChangeTokenColor(token.id, color)}
-                      />
-                    ))}
-                  </div>
-                )}
+            
+            {/* Animazione stelline per stato scosso */}
+            {token.shaken && (
+              <div className="shaken-indicator">
+                <span className="star star-1">✨</span>
+                <span className="star star-2">⭐</span>
+                <span className="star star-3">✨</span>
+              </div>
+            )}
+            
+            {/* Indicatore ferite sotto la pedina */}
+            {token.wounds > 0 && (
+              <div className="wounds-indicator">
+                {Array.from({ length: Math.min(token.wounds, 5) }).map((_, index) => (
+                  <span key={index} className="wound-dot">💔</span>
+                ))}
+                {token.wounds > 5 && <span className="wounds-overflow">+{token.wounds - 5}</span>}
               </div>
             )}
           </div>
@@ -411,11 +629,14 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
       </div>
 
       {/* Sidebar destra - Lista Enemy */}
-      <div className="sidebar sidebar-right">
+      <div className="sidebar sidebar-right" onClick={handleCloseMenu}>
         <h3>⚔️ Enemy</h3>
         <button
           className="add-sidebar-btn enemy-btn"
-          onClick={() => handleAddToken('enemy')}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddToken('enemy');
+          }}
         >
           ➕ Aggiungi
         </button>
@@ -425,22 +646,94 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
           ) : (
             tokens
               .filter((t) => t.type === 'enemy')
-              .map((token) => (
-                <div
-                  key={token.id}
-                  className="token-list-item"
-                  onClick={() => setSelectedToken(token.id)}
-                >
+              .map((token) => {
+                const tokenIndex = tokens.indexOf(token);
+                return (
+                <div key={token.id}>
                   <div
-                    className="token-color-indicator"
-                    style={{ backgroundColor: token.color }}
-                  />
-                  <span className="token-list-name">{token.label}</span>
+                    className={`token-list-item ${selectedToken === token.id ? 'selected' : ''} ${tokenIndex === currentTurnIndex ? 'active-turn' : ''}`}
+                    onMouseDown={() => handleTokenMouseDown_LongPress(token.id)}
+                    onMouseUp={handleTokenMouseUp_CancelLongPress}
+                    onMouseLeave={handleTokenMouseUp_CancelLongPress}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Ignora il click se è stato appena completato un long press
+                      if (longPressTriggeredRef.current) {
+                        return;
+                      }
+                      // Se l'elemento è già selezionato, chiudi il menu
+                      if (selectedToken === token.id) {
+                        handleCloseMenu();
+                      }
+                    }}
+                  >
+                    <div
+                      className="token-color-indicator"
+                      style={{ backgroundColor: token.color }}
+                    />
+                    <span className="token-list-name">{token.label}</span>
+                  </div>
+                  
+                  {/* Menu per la pedina selezionata */}
+                  {selectedToken === token.id && (
+                    <div className="sidebar-token-menu" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="sidebar-menu-btn edit-name-btn"
+                        onClick={() => handleOpenTokenNameMenu(token.id)}
+                      >
+                        ✎ Rinomina
+                      </button>
+                      <button
+                        className="sidebar-menu-btn color-change-btn"
+                        onClick={() => setShowTokenColorMenu(true)}
+                      >
+                        🎨 Colore
+                      </button>
+                      <div className="wounds-control">
+                        <button
+                          className="sidebar-menu-btn wounds-btn"
+                          onClick={() => handleRemoveWound(token.id)}
+                          disabled={token.wounds === 0}
+                        >
+                          ➖
+                        </button>
+                        <span className="wounds-counter">💔 {token.wounds}</span>
+                        <button
+                          className="sidebar-menu-btn wounds-btn"
+                          onClick={() => handleAddWound(token.id)}
+                        >
+                          ➕
+                        </button>
+                      </div>
+                      <button
+                        className="sidebar-menu-btn delete-btn"
+                        onClick={() => handleDeleteToken(token.id)}
+                      >
+                        🗑️ Elimina
+                      </button>
+
+                      {/* Palette colori nel menu sidebar */}
+                      {showTokenColorMenu && (
+                        <div className="sidebar-color-palette">
+                          {colorPalette.map((color, index) => (
+                            <button
+                              key={index}
+                              className="sidebar-color-btn"
+                              style={{ backgroundColor: color }}
+                              onClick={() => handleChangeTokenColor(token.id, color)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))
+              );}
+              )
           )}
         </div>
       </div>
+
       {/* Menu per scegliere il tipo di pedina */}
       {showTypeMenu && (
         <div className="type-menu-overlay" onClick={() => setShowTypeMenu(false)}>
@@ -463,6 +756,47 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
             <button
               className="type-menu-close"
               onClick={() => setShowTypeMenu(false)}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Menu per scegliere la dimensione della pedina */}
+      {showSizeMenu && (
+        <div className="size-menu-overlay" onClick={() => setShowSizeMenu(false)}>
+          <div className="size-menu" onClick={(e) => e.stopPropagation()}>
+            <h3>Seleziona dimensione pedina</h3>
+            <div className="size-menu-buttons">
+              <button
+                className="size-btn"
+                onClick={() => handleSelectSize(1)}
+              >
+                <div className="size-preview size-1x"></div>
+                <span>Medio (1x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => handleSelectSize(2)}
+              >
+                <div className="size-preview size-2x"></div>
+                <span>Grande (2x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => handleSelectSize(4)}
+              >
+                <div className="size-preview size-4x"></div>
+                <span>Enorme (4x)</span>
+              </button>
+            </div>
+            <button
+              className="size-menu-close"
+              onClick={() => {
+                setShowSizeMenu(false);
+                setSelectedType(null);
+              }}
             >
               Annulla
             </button>
@@ -542,6 +876,49 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
         </div>
       )}
 
+      {/* Menu per scegliere la dimensione dopo il nome */}
+      {showSizeMenuCreation && (
+        <div className="size-menu-overlay" onClick={() => setShowSizeMenuCreation(false)}>
+          <div className="size-menu" onClick={(e) => e.stopPropagation()}>
+            <h3>Seleziona dimensione pedina</h3>
+            <div className="size-menu-buttons">
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(1)}
+              >
+                <div className="size-preview size-1x"></div>
+                <span>Medio (1x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(2)}
+              >
+                <div className="size-preview size-2x"></div>
+                <span>Grande (2x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(4)}
+              >
+                <div className="size-preview size-4x"></div>
+                <span>Enorme (4x)</span>
+              </button>
+            </div>
+            <button
+              className="size-menu-close"
+              onClick={() => {
+                setShowSizeMenuCreation(false);
+                setSelectedType(null);
+                setSelectedColor(null);
+                setTokenName('');
+              }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Menu per cambiare il nome di una pedina esistente */}
       {showTokenNameMenu && selectedToken && (
         <div className="name-menu-overlay" onClick={() => setShowTokenNameMenu(false)}>
@@ -582,6 +959,110 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ mapUrl }) => {
           </div>
         </div>
       )}
+
+      {/* Menu per scegliere la dimensione dopo il nome */}
+      {showSizeMenuCreation && (
+        <div className="size-menu-overlay" onClick={() => setShowSizeMenuCreation(false)}>
+          <div className="size-menu" onClick={(e) => e.stopPropagation()}>
+            <h3>Seleziona dimensione pedina</h3>
+            <div className="size-menu-buttons">
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(1)}
+              >
+                <div className="size-preview size-1x"></div>
+                <span>Medio (1x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(2)}
+              >
+                <div className="size-preview size-2x"></div>
+                <span>Grande (2x)</span>
+              </button>
+              <button
+                className="size-btn"
+                onClick={() => completeTokenCreation(4)}
+              >
+                <div className="size-preview size-4x"></div>
+                <span>Enorme (4x)</span>
+              </button>
+            </div>
+            <button
+              className="size-menu-close"
+              onClick={() => {
+                setShowSizeMenuCreation(false);
+                setSelectedType(null);
+                setSelectedColor(null);
+                setTokenName('');
+              }}
+            >
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal lista personaggi con drag and drop per riordinare */}
+      {showCharactersList && (
+        <div className="characters-list-overlay" onClick={() => setShowCharactersList(false)}>
+          <div className="characters-list-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="characters-list-header">
+              <h2>📋 Ordine Turni</h2>
+              <button 
+                className="close-modal-btn"
+                onClick={() => setShowCharactersList(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <p className="characters-list-instruction">
+              Trascina per riordinare
+            </p>
+            <div className="characters-list-content">
+              {tokens.length === 0 ? (
+                <p className="empty-characters-list">Nessun personaggio creato</p>
+              ) : (
+                tokens.map((token, index) => (
+                  <div
+                    key={token.id}
+                    className={`character-list-item ${draggedListIndex === index ? 'dragging' : ''} ${index === currentTurnIndex ? 'current-turn' : ''}`}
+                    draggable
+                    onDragStart={() => handleListDragStart(index)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleListDrop(index)}
+                  >
+                    <span className="character-drag-handle">☰</span>
+                    <div
+                      className="character-color-dot"
+                      style={{ backgroundColor: token.color }}
+                    />
+                    <div className="character-info">
+                      <span className="character-name">
+                        {index === currentTurnIndex && <span className="turn-marker">▶ </span>}
+                        {token.label}
+                      </span>
+                      <span className="character-type">
+                        {token.type === 'party' ? '👥 Party' : '⚔️ Enemy'}
+                      </span>
+                    </div>
+                    <div className="character-stats">
+                      {token.wounds > 0 && (
+                        <span className="character-wounds">💔 {token.wounds}</span>
+                      )}
+                      {token.shaken && (
+                        <span className="character-shaken">✨</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});
+
+MapCanvas.displayName = 'MapCanvas';

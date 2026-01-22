@@ -4,10 +4,10 @@ import '../styles/MapUploader.css';
 /**
  * Props per il componente MapUploader
  * @interface MapUploaderProps
- * @property {(imageUrl: string, width: number, height: number) => void} onMapLoaded - Callback quando la mappa è caricata
+ * @property {(imageUrl: string, width: number, height: number, fileName: string) => void} onMapLoaded - Callback quando la mappa è caricata
  */
 interface MapUploaderProps {
-  onMapLoaded: (imageUrl: string, width: number, height: number) => void;
+  onMapLoaded: (imageUrl: string, width: number, height: number, fileName: string) => void;
 }
 
 /**
@@ -22,6 +22,7 @@ export const MapUploader: React.FC<MapUploaderProps> = ({ onMapLoaded }) => {
   /**
    * Gestisce il caricamento del file immagine
    * Legge il file e ottiene le dimensioni dell'immagine
+   * Estrae il nome del file senza estensione per la visualizzazione
    * 
    * @param {React.ChangeEvent<HTMLInputElement>} e - L'evento di cambio del file
    */
@@ -29,12 +30,15 @@ export const MapUploader: React.FC<MapUploaderProps> = ({ onMapLoaded }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Estrae il nome del file senza estensione
+    const fileName = file.name.replace(/\.[^/.]+$/, '');
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
         const url = event.target?.result as string;
-        onMapLoaded(url, img.width, img.height);
+        onMapLoaded(url, img.width, img.height, fileName);
       };
       img.src = event.target?.result as string;
     };
