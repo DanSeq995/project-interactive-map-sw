@@ -39,6 +39,8 @@ interface MapCanvasProps {
   currentTurnIndex: number;
   onTokensCountChange: (count: number) => void;
   baseTokenSize: number;
+  showGrid: boolean;
+  gridSize: number;
 }
 
 /**
@@ -59,7 +61,7 @@ export interface MapCanvasRef {
  * @returns {React.ReactElement} L'elemento della mappa interattiva
  */
 export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) => {
-  const { mapUrl, currentTurnIndex, onTokensCountChange, baseTokenSize } = props;
+  const { mapUrl, currentTurnIndex, onTokensCountChange, baseTokenSize, showGrid, gridSize } = props;
   const canvasRef = useRef<HTMLDivElement>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
@@ -181,14 +183,31 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
 
   /**
    * Completa la creazione del token con la dimensione selezionata
+   * Se la griglia è attiva, posiziona il token al centro della mappa (cella centrale)
    */
   const completeTokenCreation = (size: number) => {
     if (!selectedType || !selectedColor || !tokenName.trim()) return;
 
+    let startX = 50;
+    let startY = 50;
+
+    // Se la griglia è attiva, posiziona al centro della cella più vicina al centro della mappa
+    if (showGrid && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const cellWidthPercent = (gridSize / rect.width) * 100;
+      const cellHeightPercent = (gridSize / rect.height) * 100;
+      
+      const cellX = Math.round(50 / cellWidthPercent);
+      const cellY = Math.round(50 / cellHeightPercent);
+      
+      startX = cellX * cellWidthPercent;
+      startY = cellY * cellHeightPercent;
+    }
+
     const newToken: Token = {
       id: `token-${nextId}`,
-      x: 50,
-      y: 50,
+      x: startX,
+      y: startY,
       label: tokenName.trim(),
       color: selectedColor,
       type: selectedType,
@@ -238,6 +257,7 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
    * Gestisce il movimento del mouse durante il drag
    * Aggiorna la posizione della pedina in coordinate relative (0-100)
    * Limita i valori affinché la pedina rimanga entro i limiti della mappa
+   * Se la griglia è attiva, "snappa" la pedina al centro della cella più vicina
    * 
    * @param {React.MouseEvent<HTMLDivElement>} e - L'evento del mouse
    */
@@ -250,8 +270,22 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
     const x = e.clientX - rect.left - dragOffset.x;
     const y = e.clientY - rect.top - dragOffset.y;
 
-    const newX = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    const newY = Math.max(0, Math.min(100, (y / rect.height) * 100));
+    let newX = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    let newY = Math.max(0, Math.min(100, (y / rect.height) * 100));
+
+    // Se la griglia è attiva, "snappa" al centro della cella
+    if (showGrid) {
+      const cellWidthPercent = (gridSize / rect.width) * 100;
+      const cellHeightPercent = (gridSize / rect.height) * 100;
+      
+      // Trova la cella più vicina
+      const cellX = Math.round(newX / cellWidthPercent);
+      const cellY = Math.round(newY / cellHeightPercent);
+      
+      // Posiziona al centro della cella
+      newX = cellX * cellWidthPercent;
+      newY = cellY * cellHeightPercent;
+    }
 
     setTokens(
       tokens.map((token) =>
@@ -587,6 +621,38 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
           flex: 1,
         }}
       >
+        {/* Griglia SVG */}
+        {showGrid && (
+          <svg
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          >
+            <defs>
+              <pattern
+                id="grid"
+                width={gridSize}
+                height={gridSize}
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d={`M ${gridSize} 0 L 0 0 0 ${gridSize}`}
+                  fill="none"
+                  stroke="rgba(255, 255, 255, 0.3)"
+                  strokeWidth="1"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+        )}
+
         {/* Rendering delle pedine sulla mappa */}
         {tokens.map((token, index) => (
           <div

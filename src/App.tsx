@@ -29,6 +29,8 @@ function App() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerExpired, setTimerExpired] = useState(false);
   const [baseTokenSize, setBaseTokenSize] = useState(32);
+  const [showGrid, setShowGrid] = useState(false);
+  const [gridSize, setGridSize] = useState(50);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleNextTurn = () => {
@@ -377,6 +379,39 @@ function App() {
                       </div>
                     </div>
                   </div>
+                  
+                  <div className="setting-section">
+                    <h3>Griglia Mappa</h3>
+                    <p className="setting-description">Mostra una griglia sulla mappa per facilitare il movimento</p>
+                    <div className="grid-toggle-container">
+                      <label className="toggle-label">
+                        <input 
+                          type="checkbox" 
+                          checked={showGrid}
+                          onChange={(e) => setShowGrid(e.target.checked)}
+                          className="grid-checkbox"
+                        />
+                        <span className="toggle-text">Mostra Griglia</span>
+                      </label>
+                    </div>
+                    {showGrid && (
+                      <>
+                        <div className="size-slider-container">
+                          <label className="slider-label">Dimensione celle:</label>
+                          <input 
+                            type="range" 
+                            min="20" 
+                            max="100" 
+                            step="5" 
+                            value={gridSize}
+                            onChange={(e) => setGridSize(parseInt(e.target.value))}
+                            className="size-slider"
+                          />
+                          <span className="size-value">{gridSize}px</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </>
@@ -390,6 +425,8 @@ function App() {
             currentTurnIndex={currentTurnIndex}
             onTokensCountChange={handleTokensCountChange}
             baseTokenSize={baseTokenSize}
+            showGrid={showGrid}
+            gridSize={gridSize}
           />
         </>
       )}
