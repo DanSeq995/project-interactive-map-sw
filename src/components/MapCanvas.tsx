@@ -197,11 +197,11 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
       const cellWidthPercent = (gridSize / rect.width) * 100;
       const cellHeightPercent = (gridSize / rect.height) * 100;
       
-      const cellX = Math.round(50 / cellWidthPercent);
-      const cellY = Math.round(50 / cellHeightPercent);
+      const cellX = Math.floor(50 / cellWidthPercent);
+      const cellY = Math.floor(50 / cellHeightPercent);
       
-      startX = cellX * cellWidthPercent;
-      startY = cellY * cellHeightPercent;
+      startX = cellX * cellWidthPercent + cellWidthPercent / 2;
+      startY = cellY * cellHeightPercent + cellHeightPercent / 2;
     }
 
     const newToken: Token = {
@@ -278,13 +278,13 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
       const cellWidthPercent = (gridSize / rect.width) * 100;
       const cellHeightPercent = (gridSize / rect.height) * 100;
       
-      // Trova la cella più vicina
-      const cellX = Math.round(newX / cellWidthPercent);
-      const cellY = Math.round(newY / cellHeightPercent);
+      // Trova in quale cella si trova la posizione
+      const cellX = Math.floor(newX / cellWidthPercent);
+      const cellY = Math.floor(newY / cellHeightPercent);
       
       // Posiziona al centro della cella
-      newX = cellX * cellWidthPercent;
-      newY = cellY * cellHeightPercent;
+      newX = cellX * cellWidthPercent + cellWidthPercent / 2;
+      newY = cellY * cellHeightPercent + cellHeightPercent / 2;
     }
 
     setTokens(
