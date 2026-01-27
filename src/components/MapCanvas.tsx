@@ -85,6 +85,11 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
   const longPressTriggeredRef = useRef(false);
   const [showCharactersList, setShowCharactersList] = useState(false);
   const [draggedListIndex, setDraggedListIndex] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDraggingMap, setIsDraggingMap] = useState(false);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   /**
    * Espone la funzione per aprire la lista dei personaggi al componente padre
@@ -243,13 +248,13 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const tokenPixelX = (token.x / 100) * rect.width;
-    const tokenPixelY = (token.y / 100) * rect.height;
+    const tokenPixelX = ((token.x / 100) * (rect.width / zoom));
+    const tokenPixelY = ((token.y / 100) * (rect.height / zoom));
 
     setDraggingToken(tokenId);
     setDragOffset({
-      x: e.clientX - rect.left - tokenPixelX,
-      y: e.clientY - rect.top - tokenPixelY,
+      x: (e.clientX - rect.left - pan.x) / zoom - tokenPixelX,
+      y: (e.clientY - rect.top - pan.y) / zoom - tokenPixelY,
     });
   };
 
@@ -267,11 +272,12 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const x = e.clientX - rect.left - dragOffset.x;
-    const y = e.clientY - rect.top - dragOffset.y;
+    // Compensiamo per zoom e pan
+    const x = (e.clientX - rect.left - pan.x) / zoom - dragOffset.x;
+    const y = (e.clientY - rect.top - pan.y) / zoom - dragOffset.y;
 
-    let newX = Math.max(0, Math.min(100, (x / rect.width) * 100));
-    let newY = Math.max(0, Math.min(100, (y / rect.height) * 100));
+    let newX = Math.max(0, Math.min(100, (x / (rect.width / zoom)) * 100));
+    let newY = Math.max(0, Math.min(100, (y / (rect.height / zoom)) * 100));
 
     // Se la griglia è attiva, "snappa" al centro della cella
     if (showGrid) {
@@ -299,6 +305,39 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
    */
   const handleMouseUp = () => {
     setDraggingToken(null);
+    setIsDraggingMap(false);
+  };
+
+  /**
+   * Gestisce lo zoom con la rotellina del mouse
+   */
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(0.5, Math.min(3, prev + delta)));
+  };
+
+  /**
+   * Gestisce l'inizio del drag della mappa (con tasto destro o middle mouse)
+   */
+  const handleMapMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 1 || e.button === 2) { // Middle o right click
+      e.preventDefault();
+      setIsDraggingMap(true);
+      setDragStartPos({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  /**
+   * Gestisce il movimento durante il drag della mappa
+   */
+  const handleMapMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingMap) {
+      setPan({
+        x: e.clientX - dragStartPos.x,
+        y: e.clientY - dragStartPos.y,
+      });
+    }
   };
 
   /**
@@ -602,25 +641,41 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
 
       {/* Canvas principale della mappa con gestione del mouse */}
       <div
-        ref={canvasRef}
         className="map-canvas"
-        onMouseMove={handleMouseMove}
+        onWheel={handleWheel}
+        onMouseDown={handleMapMouseDown}
+        onMouseMove={(e) => {
+          handleMapMouseMove(e);
+          handleMouseMove(e);
+        }}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onClick={handleCloseMenu}
+        onContextMenu={(e) => e.preventDefault()}
         style={{
-          backgroundImage: `url(${mapUrl})`,
-          backgroundSize: 'contain',
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
           width: '100%',
           height: '100%',
           position: 'relative',
-          cursor: draggingToken ? 'grabbing' : 'default',
+          cursor: isDraggingMap ? 'grabbing' : draggingToken ? 'grabbing' : 'default',
           touchAction: 'none',
           flex: 1,
+          overflow: 'hidden',
         }}
       >
+        <div
+          ref={canvasRef}
+          style={{
+            backgroundImage: `url(${mapUrl})`,
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'center center',
+          }}
+        >
         {/* Griglia SVG */}
         {showGrid && (
           <svg
@@ -692,6 +747,7 @@ export const MapCanvas = forwardRef<MapCanvasRef, MapCanvasProps>((props, ref) =
             )}
           </div>
         ))}
+        </div>
       </div>
 
       {/* Sidebar destra - Lista Enemy */}
